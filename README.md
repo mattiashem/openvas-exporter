@@ -52,7 +52,7 @@ Setup and chnage your config.ini file to have the values for your gsad
 username=admin
 password=admin
 host=gvmd
-datafolder=/tmp
+datafolder=data
 ```
 
 ### Setup the datafolder 
