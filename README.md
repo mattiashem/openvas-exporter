@@ -12,9 +12,11 @@ The JSON files can then bed read by Logstash and sent to ElasticSearch ore simul
 
 Easy way is to run the exporter as docker image. 
 
-´´´
+```
 docker run -it sammascanner/openvas-exporter
-´´´
+
+```
+
 
 The values to set are 
 
@@ -36,6 +38,11 @@ The values to set are
 
 Clone this repo into the opt folder (You can use other if you want but check config)
 
+
+```
+cd /opt
+git clone git@github.com:mattiashem/openvas-exporter.git
+```
 
 ### Alter your config.ini file
 Setup and chnage your config.ini file to have the values for your gsad
@@ -88,4 +95,4 @@ To keep track of what reports have eban generated the script look for a file wit
 If that file excciste then the report is not process.
 
 If you want to get all reports again you can delete all the files in the foldr to generate new json files.
-Ore you can delete the file with th id of the report you want to regenerate.
+Ore you can delete the file with th id of the report you want to regenerate.3
