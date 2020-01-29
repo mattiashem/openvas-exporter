@@ -62,7 +62,7 @@ setup the data folder if not excists.
 
 ```
 If needed
-mkdir /opt/openvas-exporter/data
+mkdir /opt/openvas-exporter/code/data
 ```
 
 ### Create a user for the script to run from 
@@ -119,7 +119,7 @@ to
 
 ```
  file {
-    path => "/opt/openvas-exporter/data/*.json"
+    path => "/opt/openvas-exporter/code/data/*.json"
 ```
 When using the python script only
 
