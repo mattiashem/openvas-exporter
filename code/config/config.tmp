@@ -1,0 +1,5 @@
+[DEFAULT]
+username=$USERNAME
+password=$PASSWORD
+host=$GSAD_HOST
+datafolder=$DATA

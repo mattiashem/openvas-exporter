@@ -104,3 +104,49 @@ If that file excciste then the report is not process.
 
 If you want to get all reports again you can delete all the files in the foldr to generate new json files.
 Ore you can delete the file with th id of the report you want to regenerate.3
+
+
+## Logstash
+TO use logstash to send the event you can use the configfile in the config folder.
+Change the 
+
+```
+ file {
+    path => "/home/gvm/data/*.json"
+```
+
+to 
+
+```
+ file {
+    path => "/opt/openvas-exporter/data/*.json"
+```
+When using the python script only
+
+
+To send the logs to some other host like elastic add a new output
+
+```
+output {
+  if "openvas" in [tags] {
+    stdout {
+    }
+
+  }
+}
+```
+
+to 
+
+```
+output {
+  if "openvas" in [tags] {
+    stdout {
+    }
+    elasticsearch {
+      hosts => ["$ELASTICSEARCH"]
+      index => "logstash-openvas-%{+YYYY.MM}"
+    }
+  }
+}
+```
