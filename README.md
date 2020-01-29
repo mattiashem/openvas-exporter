@@ -31,7 +31,7 @@ The values to set are
 ### Install deps
 
 - Python 3
-- pip3 install gvm-tools untangle
+- pip3 install gvm-tools untangle python-gvm
 
 
 ### Clonde this repo
