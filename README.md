@@ -61,6 +61,7 @@ setup the data folder if not excists.
 
 
 ```
+If needed
 mkdir /opt/openvas-exporter/data
 ```
 
@@ -72,6 +73,13 @@ Create a user account to be used.
 ```
 adduser gvm
 ```
+
+Fix the permissions
+
+
+```
+
+chown gvm:gvm -R /opt/openvas-exporter/
 
 
 ### Start the sync
