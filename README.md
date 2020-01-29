@@ -80,7 +80,7 @@ Fix the permissions
 ```
 
 chown gvm:gvm -R /opt/openvas-exporter/
-
+```
 
 ### Start the sync
 
