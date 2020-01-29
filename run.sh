@@ -17,5 +17,6 @@ echo "Looping"
 while true
 do
     python3 getReport.py
-sleep 5m
+    echo "sleep"
+    sleep 1m
 done

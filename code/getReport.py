@@ -111,5 +111,7 @@ def haveThisBeanDone(id):
     else:
         return True
 
-
-exportReports()
+try:
+    exportReports()
+except:
+    print("Getting data failt will try again")

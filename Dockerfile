@@ -20,6 +20,7 @@ RUN useradd gvm
 RUN mkdir /home/gvm
 COPY code/ /home/gvm
 RUN chown gvm:gvm -R /home/gvm
+RUN chown gvm:gvm -R /usr/share/logstash
 
 #Setup defult settings
 ENV USERNAME=admin
@@ -31,8 +32,8 @@ ENV DATA=data
 
 
 #Setup run script
-COPY run.sh /run.sh
-RUN chmod +x /run.sh
+COPY run.sh /home/gvm/run.sh
+RUN chmod +x /home/gvm/run.sh
 USER gvm
 WORKDIR /home/gvm/
 CMD ./run.sh
