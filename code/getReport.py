@@ -13,7 +13,7 @@ import configparser
 # Read the configfile
 config = configparser.ConfigParser()
 config.sections()
-config.read('config.ini')
+config.read('config/config.ini')
 
 
 
