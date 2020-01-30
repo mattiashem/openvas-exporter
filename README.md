@@ -8,6 +8,32 @@ The JSON files can then bed read by Logstash and sent to ElasticSearch ore simul
 - Can also add new target and create scan for them
 
 
+
+## Make shoure gvmd is lissen on port 9390
+The script connect to gvmd on port 9390 to lissen for connections.
+So before it to work verify that your gvmd is lissen on that port.
+
+If you install openvas on ubuntu you need to enable gvmd to lissen for the ports by
+
+
+Edit /etc/defualt/gvmd and uncommet LISSEN adn PORT values
+
+
+```
+vi /etc/defualts/gvmd
+```
+
+
+Restart gvmd
+
+```
+systemctl stop gvmd
+systemctl start gvmd
+```
+
+(systemctl restart did not work when i tested ....)
+
+
 ## How to run as docker
 
 Easy way is to run the exporter as docker image. 
@@ -66,6 +92,8 @@ mkdir /opt/openvas-exporter/code/data
 ```
 
 ### Create a user for the script to run from 
+
+** Not NEED if run python script **
 Then script CAN NOT BE RUN AS ROOT
 Create a user account to be used.
 
