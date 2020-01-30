@@ -163,10 +163,11 @@ To send the logs to some other host like elastic add a new output
 
 ```
 output {
+    if "openvas" in [tags] {
  
     stdout {
     }
-
+    }
   
 }
 ```
@@ -176,13 +177,14 @@ to
 ```
 output {
 
+if "openvas" in [tags] {
     stdout {
     }
     elasticsearch {
       hosts => ["$ELASTICSEARCH"]
       index => "logstash-openvas-%{+YYYY.MM}"
     }
-  
+}
 }
 ```
 
