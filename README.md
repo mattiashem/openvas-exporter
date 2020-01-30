@@ -34,6 +34,12 @@ systemctl start gvmd
 (systemctl restart did not work when i tested ....)
 
 
+Verify with 
+
+```
+telnet 127.0.0.1 9390
+```
+
 ## How to run as docker
 
 Easy way is to run the exporter as docker image. 
@@ -48,8 +54,8 @@ The values to set are
 
 - USERNAME = gsad username
 - PASSWORD = gsad password
-- GSAD_HOST = Hostname / ip to gsad 
--
+- GSAD_HOST = Hostname / ip to gvmd
+
 
 
 ## Run as python script on local server
@@ -93,7 +99,8 @@ mkdir /opt/openvas-exporter/code/data
 
 ### Create a user for the script to run from 
 
-** Not NEED if run python script **
+** Not NEED **
+
 Then script CAN NOT BE RUN AS ROOT
 Create a user account to be used.
 
@@ -178,3 +185,37 @@ output {
   
 }
 ```
+
+
+## Trobbelshout
+
+To test the script erase all the files in the data folder.
+Then run the script.
+
+Now yous should see some json files in the data folder.
+
+- If no json files = the script cannot connect to gvmd. Check the port are open and you have correct user and password
+
+
+- If json file go to logstash and check it reads the log. the patch to the data folder is correct and the output is correct.
+
+### Test logstash 
+you cna test the logstash config by running it local.
+Open the file logstash_test.conf anf verify the 
+
+```
+    path => "/home/gvm/data/*.json"
+
+```
+ispoting to the correct data folder
+
+```
+logstash -f logstash_test.conf
+```
+
+This shoul print the alerts into your terminal.
+
+
+### Reset
+
+To reset all results simple delete alla the files in the data folder.

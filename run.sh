@@ -18,5 +18,5 @@ while true
 do
     python3 getReport.py
     echo "sleep"
-    sleep 1m
+    sleep 5m
 done
