@@ -12,6 +12,7 @@ from os import makedirs
 import configparser
 import sys
 import getopt
+import hashlib
 
 # Read the configfile
 config = configparser.ConfigParser()
@@ -19,7 +20,7 @@ config.sections()
 config.read('config/config.ini')
 
 
-def exportReports(filterID, optPagination, optDetails):
+def exportReports(filterID, filterString, optPagination, optDetails):
     '''
      This will add a target to the list and start the scan of the targets
     '''
@@ -58,17 +59,27 @@ def exportReports(filterID, optPagination, optDetails):
         #Get out the reports and get them as csv files to use
         for reportID in getReports:
             print("Report ID: {0}".format(reportID))
-            reportscv = gmp.get_report(reportID, filter_id=filterID, report_format_id=reportFormatID, ignore_pagination=optPagination, details=optDetails)
+
+            if filterString:
+                reportscv = gmp.get_report(reportID, filter=filterString, report_format_id=reportFormatID, ignore_pagination=optPagination, details=optDetails)
+                # we need a consistent identify for this string so hashes to the rescue
+                # we are going to reuse the filterID variable to hold it
+                sha_1 = hashlib.sha1() #instantiate hash
+                sha_1.update(filterString.encode('utf-8')) #hash the string being sure to use proper encoding
+                filterID = sha_1.hexdigest() #return the hash as a hex string
+            else:
+                reportscv = gmp.get_report(reportID, filter_id=filterID, report_format_id=reportFormatID, ignore_pagination=optPagination, details=optDetails)
+
             obj = untangle.parse(reportscv)
             resultID = obj.get_reports_response.report['id']
             base64CVSData = obj.get_reports_response.report.cdata
             data = str(base64.b64decode(base64CVSData),"utf-8")
 
             #Write the result to file
-            writeResultToFile(resultID,data,filterID)
+            writeResultToFile(resultID,data,filterID, filterString)
 #end exportReports            
 
-def writeResultToFile(name,data,fpsuffix):
+def writeResultToFile(name,data,fpsuffix, filterString):
     '''
     This will write the data into a file
     '''
@@ -81,6 +92,11 @@ def writeResultToFile(name,data,fpsuffix):
         if not path.isdir(reportPath):
             os.makedirs(reportPath)
             print("Created directory for filter ", fpsuffix)
+        if filterString:
+            filterStringFile = "{0}/{1}/{2}".format(config['DEFAULT']['datafolder'],fpsuffix,'filter_string.txt')
+            fs = open(filterStringFile, "w")
+            fs.write(filterString + '\n')
+            fs.close()
     else:
         csvFilePath = "{0}/{1}.csv".format(config['DEFAULT']['datafolder'],name)
         jsonFilePath = "{0}/{1}.json".format(config['DEFAULT']['datafolder'],name)
@@ -96,6 +112,7 @@ def writeResultToFile(name,data,fpsuffix):
     #read the csv and add the data to a dictionary
     print ('Writing JSON file: ', jsonFilePath)
     jsonFile = open(jsonFilePath, "w")
+
     with open (csvFilePath) as csvFile:
         csvReader = csv.DictReader(csvFile)
         for csvRow in csvReader:
@@ -118,23 +135,28 @@ def hasThisBeenDone(id, dataPath):
 #end hasThisBeenDone
     
 def main(argv):
-    filterId = ''
+    filterID = ''
+    filterString = ''
     pagination = True
     details = True
+
     try:
-        opts, args = getopt.getopt(argv, "hpdf:")
+        opts, args = getopt.getopt(argv, "hpdf:s:")
     except getopt.GetoptError:
         print('getReport.py -f <filter id>')
         print('             -d disable details')
         print('             -p enable pagination')
+        print('             -s custom filter string')
         pretty_print(getopt.GetoptError)
         sys.exit(2)
     #end excpet
+
     for opt, arg in opts:
         if opt == '-h':
             print('getReport.py -f <filter id>')
             print('             -d disable details')
             print('             -p enable pagination')
+            print('             -s custom filter string')
             sys.exit()
         elif opt == '-f':
             filterID = arg
@@ -142,9 +164,33 @@ def main(argv):
             pagination = False
         elif opt == '-d':
             details = False
+        elif opt =='-s':
+            filterString = arg;
     #end for
-    print('Running reports with filter: ', filterID)
-    exportReports(filterID, pagination, details)
+
+    if filterID and filterString:
+        print ('-f and -s are mutually exclusive. Please use one or the other.')
+        sys.exit();
+
+    if details:
+        print('Details enabled')
+    else:
+        print('Details disabled')
+
+    if pagination:
+        print('Ignore pagination enabled')
+    else:
+        print('Ignore pagaination disabled')
+
+    if filterID:
+        print('Running reports with filter: ', filterID)
+    else:
+        print ('Running reports with no filter id')
+
+    if filterString:
+        print('Running custom report with filter: ', filterString)
+
+    exportReports(filterID, filterString, pagination, details)
 #end main
     
 if __name__ == "__main__":
