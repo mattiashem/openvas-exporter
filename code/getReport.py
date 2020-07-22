@@ -186,6 +186,7 @@ def main(argv):
     filterString = ''
     pagination = True
     details = True
+<<<<<< HEAD
     rewriteReports = False
     
     try:
