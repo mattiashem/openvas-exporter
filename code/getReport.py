@@ -105,7 +105,7 @@ def exportReports(filterID, filterString, optPagination, optDetails, optRewrite)
             # we use the filterID and the rpeortID to create a key for the ranReports dict. If it exists then skip
             # that report unless we are over writing (or regenerating) reports. 
             ranReportsKey = filterID + reportID
-            if ranReports[ranReportsKey] and not optRewrite:
+            if ranReportsKey in ranReports and not optRewrite:
                 print("This report was processed on %s" %(ranReports[ranReportsKey]))
                 continue
                                             
