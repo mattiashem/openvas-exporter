@@ -20,7 +20,12 @@ config = configparser.ConfigParser()
 config.sections()
 config.read('config/config.ini')
 
-#get the current datetime once
+'''
+get the current datetime once
+this won't be represent when the report was written to
+disk but when we started the program. This is close enough
+for our needs. Saves a minimal number of cycles but good practice
+'''
 current_datetime = datetime.now()
 
 '''
@@ -47,14 +52,18 @@ def readRanReportsFile():
     return ranReports
 #end readRanReportsFile
     
+'''
+This will add a target to the list and start the scan of the targets
+First we get the report format ID associated with CSV output. Then
+we grab a list of all reportIDs on the server. We then check to see if the
+reportID is in the list of previous run reports for the chosen filter. If it is
+then skip it. If not then grab the full report using that filter
+'''
 def exportReports(filterID, filterString, optPagination, optDetails, optRewrite):
-    '''
-     This will add a target to the list and start the scan of the targets
-    '''
-
     print('Loading previously completed reports data');
     ranReports = readRanReportsFile();
 
+    #connect to our host as defined in the config file
     connection = TLSConnection(hostname=config['DEFAULT']['host'],timeout=300)
     print('Starting report processing')
     
@@ -63,8 +72,8 @@ def exportReports(filterID, filterString, optPagination, optDetails, optRewrite)
         gmp.authenticate(config['DEFAULT']['username'], config['DEFAULT']['password'])
         print('Connected to:', config['DEFAULT']['host'])
         
-        #Get the CSV report type
-        reportFormatID=""
+        #Get the CSV report format ID. We use CSV as the base format to transform into json
+        reportFormatID="" #holds the format id for CSV
         report_format = gmp.get_report_formats()
         report_root = ET.fromstring(report_format)
         for report in report_root:
@@ -73,9 +82,9 @@ def exportReports(filterID, filterString, optPagination, optDetails, optRewrite)
                 if report_format.text == 'CSV result list.':
                     reportFormatID= report.attrib.get('id')
 
-        getReports=[]
+        getReports=[] #array of reportIDs
         print ('Getting reports')
-        allreports = gmp.get_reports()
+        allreports = gmp.get_reports(no_details=True) #we only need the reportID so minimize the data returned
         print ('Retreived reports')
         allreports_root = ET.fromstring(allreports)
         print("Fetched the following scans from %s" %(config['DEFAULT']['host']))
@@ -87,8 +96,7 @@ def exportReports(filterID, filterString, optPagination, optDetails, optRewrite)
                         print(report.attrib)
                         getReports.append(report.attrib.get('id'))
 
-
-        #Get out the reports and get them as csv files to use
+        #Step through the reportID list and grab them as csv files
         for reportID in getReports:
             print("Processing Report ID: {0}".format(reportID))
 
@@ -102,14 +110,14 @@ def exportReports(filterID, filterString, optPagination, optDetails, optRewrite)
                 sha_1.update(filterString.encode('utf-8')) #hash the string being sure to use proper encoding
                 filterID = sha_1.hexdigest() #return the hash as a hex string                
 
-            # we use the filterID and the rpeortID to create a key for the ranReports dict. If it exists then skip
+            # we use the filterID and the reportID to create a key for the ranReports dict. If it exists then skip
             # that report unless we are over writing (or regenerating) reports. 
             ranReportsKey = filterID + reportID
             if ranReportsKey in ranReports and not optRewrite:
                 print("This report was processed on %s" %(ranReports[ranReportsKey]))
                 continue
                                             
-            if filterString:
+            if filterString: #if they are using a custojer filter string entered on the CLI
                 reportscv = gmp.get_report(reportID, filter=filterString, report_format_id=reportFormatID, ignore_pagination=optPagination, details=optDetails)
             else:
                 reportscv = gmp.get_report(reportID, filter_id=filterID, report_format_id=reportFormatID, ignore_pagination=optPagination, details=optDetails)
@@ -123,11 +131,10 @@ def exportReports(filterID, filterString, optPagination, optDetails, optRewrite)
             writeResultToFile(resultID, data, filterID, filterString)
 #end exportReports            
 
+'''
+This will write the CSV data into a file
+'''    
 def writeResultToFile(name, data, fpsuffix, filterString):
-    '''
-    This will write the data into a file
-    '''
-    
     if fpsuffix:
         reportPath = "{0}/{1}".format(config['DEFAULT']['datafolder'],fpsuffix)
         csvFilePath = "{0}/{1}.csv".format(reportPath, name)
@@ -136,17 +143,17 @@ def writeResultToFile(name, data, fpsuffix, filterString):
         if not path.isdir(reportPath):
             os.makedirs(reportPath)
             print("Created directory for filter ", fpsuffix)
-        if filterString:
+        if filterString: #we want to save the filterString entered on the CLI 
             filterStringFile = "{0}/{1}/{2}".format(config['DEFAULT']['datafolder'],fpsuffix,'filter_string.txt')
             fs = open(filterStringFile, "w")
             fs.write(filterString + '\n')
             fs.close()
-    else:
+    else: 
         csvFilePath = "{0}/{1}.csv".format(config['DEFAULT']['datafolder'],name)
         jsonFilePath = "{0}/{1}.json".format(config['DEFAULT']['datafolder'],name)
     #end if fpsuffix
         
-    print ('Writing CVS file: ', csvFilePath)
+    print ('Writing CSV file: ', csvFilePath)
     f = open(csvFilePath, "w")
     f.write(data)
     f.close()
@@ -162,6 +169,8 @@ def writeResultToFile(name, data, fpsuffix, filterString):
     #end with
 
     #write the reportID, filterID, and current date time to ranreports file
+    # in the case of the overwrite optiosn being used we *do not* remove the
+    # old entires from prior runs. We should but we don't. 
     ranReportsFile = open(config['DEFAULT']['reportfile'],'a')
     ranReportsFile.write('%s, %s, %s\n' % (fpsuffix, name, current_datetime))
     
@@ -169,17 +178,6 @@ def writeResultToFile(name, data, fpsuffix, filterString):
     jsonFile.close()
     csvFile.close()
 #end writeResultToFile
-    
-def hasThisBeenDone(id, dataPath):
-    '''
-    Check if a report has already been proccessed
-    '''
-    if path.exists(dataPath):
-        print('We have already processed this report.')
-        return False
-    else:
-        return True
-#end hasThisBeenDone
     
 def main(argv):
     filterID = ''
