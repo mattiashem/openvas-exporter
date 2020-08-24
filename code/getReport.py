@@ -15,11 +15,6 @@ import sys
 import getopt
 import hashlib
 
-# Read the configfile
-config = configparser.ConfigParser()
-config.sections()
-config.read('config/config.ini')
-
 '''
 get the current datetime once
 this won't be represent when the report was written to
@@ -28,6 +23,8 @@ for our needs. Saves a minimal number of cycles but good practice
 '''
 current_datetime = datetime.now()
 
+config = configparser.ConfigParser()
+    
 '''
 This function reads in the list of already processed reports and stores it as an array
 ranReports[reportID][filterID][date]
@@ -37,7 +34,13 @@ All values are in ASCII.
 '''
 def readRanReportsFile():
     ranReports = {}
-    reportFile = open(config['DEFAULT']['reportfile'],'r')
+    if os.path.isfile(config['DEFAULT']['reportfile']):
+        try: 
+            reportFile = open(config['DEFAULT']['reportfile'],'r')
+        except IOError:
+                print("Cannot open previously ran reports file. Please check file access or the config file")
+    else:
+        return ranReports
     reportData = reportFile.readlines();
     reportFile.close();
     i = 0
@@ -64,11 +67,15 @@ def exportReports(filterID, filterString, optPagination, optDetails, optRewrite)
     ranReports = readRanReportsFile();
 
     #connect to our host as defined in the config file
+    print ("Trying to connect to: '", config['DEFAULT']['host'], "' on port: '", config['DEFAULT']['port'],"'")
     connection = TLSConnection(hostname=config['DEFAULT']['host'],timeout=300)
+    if config['DEFAULT']['port']: 
+        connection = TLSConnection(hostname=config['DEFAULT']['host'],port=config['DEFAULT']['port'],timeout=300)
     print('Starting report processing')
     
     with Gmp(connection) as gmp:
         # Login
+        print ("Attempting to authenticate")
         gmp.authenticate(config['DEFAULT']['username'], config['DEFAULT']['password'])
         print('Connected to:', config['DEFAULT']['host'])
         
@@ -141,39 +148,53 @@ def writeResultToFile(name, data, fpsuffix, filterString):
         jsonFilePath = "{0}/{1}.json".format(reportPath,name)
         #create the directory if it doesn't exist
         if not path.isdir(reportPath):
-            os.makedirs(reportPath)
-            print("Created directory for filter ", fpsuffix)
+            try: 
+                os.makedirs(reportPath)
+            except IOError:
+                    print("Fatal eror: Could not create directories for reports on ", reportPath)
+                    return 
+        print("Created directory for filter ", fpsuffix)
         if filterString: #we want to save the filterString entered on the CLI 
             filterStringFile = "{0}/{1}/{2}".format(config['DEFAULT']['datafolder'],fpsuffix,'filter_string.txt')
-            fs = open(filterStringFile, "w")
-            fs.write(filterString + '\n')
-            fs.close()
+            try: 
+                fs = open(filterStringFile, "w")
+                fs.write(filterString + '\n')
+                fs.close()
+            except IOError:
+                    print("Non fatal error: Cannot write filter string to ", filterStringFile)
     else: 
         csvFilePath = "{0}/{1}.csv".format(config['DEFAULT']['datafolder'],name)
         jsonFilePath = "{0}/{1}.json".format(config['DEFAULT']['datafolder'],name)
     #end if fpsuffix
         
     print ('Writing CSV file: ', csvFilePath)
-    f = open(csvFilePath, "w")
-    f.write(data)
-    f.close()
-    
+    try: 
+        f = open(csvFilePath, "w")
+        f.write(data)
+        f.close()
+    except IOError:
+            print("Fatal error: Could not write CSV data to ", csvFilePath)
+            return 
     #read the csv and add the data to a dictionary
     print ('Writing JSON file: ', jsonFilePath)
-    jsonFile = open(jsonFilePath, "w")
-
-    with open (csvFilePath) as csvFile:
-        csvReader = csv.DictReader(csvFile)
-        for csvRow in csvReader:
-            jsonFile.write(json.dumps(csvRow)+"\n")
-    #end with
+    try: 
+        jsonFile = open(jsonFilePath, "w")
+        with open (csvFilePath) as csvFile:
+            csvReader = csv.DictReader(csvFile)
+            for csvRow in csvReader:
+                jsonFile.write(json.dumps(csvRow)+"\n")
+    except IOError:
+            print("Fatal error: Could not write JSON file to ", jsonFilePath)
 
     #write the reportID, filterID, and current date time to ranreports file
     # in the case of the overwrite optiosn being used we *do not* remove the
     # old entires from prior runs. We should but we don't. 
-    ranReportsFile = open(config['DEFAULT']['reportfile'],'a')
-    ranReportsFile.write('%s, %s, %s\n' % (fpsuffix, name, current_datetime))
-    
+    try: 
+        ranReportsFile = open(config['DEFAULT']['reportfile'],'a')
+        ranReportsFile.write('%s, %s, %s\n' % (fpsuffix, name, current_datetime))
+    except IOError:
+            print("Non fatal error: Could not write previously raw reports data to ", config['DEFAULT']['reportfile'])
+
     ranReportsFile.close()
     jsonFile.close()
     csvFile.close()
@@ -185,14 +206,16 @@ def main(argv):
     pagination = True
     details = True
     rewriteReports = False
+    configSuffix = 'ini'
     
     try:
-        opts, args = getopt.getopt(argv, "hpdf:s:o")
+        opts, args = getopt.getopt(argv, "hpdf:s:oi:")
     except getopt.GetoptError:
-        print('getReport.py -f <filter id>')
+        print('getReport.py -f <filter id> [string]')
+        print('             -i config file sufix [string]')
         print('             -d disable details')
         print('             -p enable pagination')
-        print('             -s custom filter string')
+        print('             -s custom filter string [string]')
         print('             -o over write previously processed reports')
         pretty_print(getopt.GetoptError)
         sys.exit(2)
@@ -201,6 +224,7 @@ def main(argv):
     for opt, arg in opts:
         if opt == '-h':
             print('getReport.py -f <filter id>')
+            print('             -i config file sufix [string]')            
             print('             -d disable details')
             print('             -p enable pagination')
             print('             -s custom filter string')
@@ -216,12 +240,29 @@ def main(argv):
             filterString = arg;
         elif opt =='-o':
             rewriteReports = True
-    #end for
+        elif opt == '-i':
+            configSuffix = arg
+        #end for
 
+    configFile = './config/config.' + configSuffix
+    config.sections()
+
+    if os.path.isfile(configFile):
+        try:
+            config.read(configFile)
+        except:
+            print ('Cannot open config file at', configFile);
+            sys.exit()
+    else:
+        print ('Config file does not exist at', configFile);
+        sys.exit()
+            
     if filterID and filterString:
         print ('-f and -s are mutually exclusive. Please use one or the other.')
-        sys.exit();
+        sys.exit()
 
+    print ('Getting Ibex configuration from', configFile)
+        
     if details:
         print('Details enabled')
     else:
