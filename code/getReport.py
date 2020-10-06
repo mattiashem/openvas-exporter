@@ -68,9 +68,9 @@ def exportReports(filterID, filterString, optPagination, optDetails, optRewrite)
 
     #connect to our host as defined in the config file
     print ("Trying to connect to: '", config['DEFAULT']['host'], "' on port: '", config['DEFAULT']['port'],"'")
-    connection = TLSConnection(hostname=config['DEFAULT']['host'],timeout=300)
+    connection = TLSConnection(hostname=config['DEFAULT']['host'],timeout=3600)
     if config['DEFAULT']['port']: 
-        connection = TLSConnection(hostname=config['DEFAULT']['host'],port=config['DEFAULT']['port'],timeout=300)
+        connection = TLSConnection(hostname=config['DEFAULT']['host'],port=config['DEFAULT']['port'],timeout=3600)
     print('Starting report processing')
     
     with Gmp(connection) as gmp:
@@ -91,7 +91,7 @@ def exportReports(filterID, filterString, optPagination, optDetails, optRewrite)
 
         getReports=[] #array of reportIDs
         print ('Getting reports')
-        allreports = gmp.get_reports(no_details=True) #we only need the reportID so minimize the data returned
+        allreports = gmp.get_reports(details=0) #we only need the reportID so minimize the data returned
         print ('Retreived reports')
         allreports_root = ET.fromstring(allreports)
         print("Fetched the following scans from %s" %(config['DEFAULT']['host']))
