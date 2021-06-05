@@ -1,5 +1,5 @@
 from datetime import datetime
-from gvm.connections import TLSConnection
+from gvm.connections import SSHConnection
 from gvm.protocols.gmp import Gmp
 from gvm.transforms import EtreeTransform
 from gvm.xml import pretty_print
@@ -14,6 +14,15 @@ import configparser
 import sys
 import getopt
 import hashlib
+from pathlib import Path
+import xmltodict
+
+'''
+Sometimes the CSV fields are huge. So we'll increase the maximum size of
+the field length to system max. 
+'''
+csv.field_size_limit(sys.maxsize)
+
 
 '''
 get the current datetime once
@@ -32,15 +41,24 @@ The date is just so people know when that report was first generated
 The data format of the incoming file is reportID, filterID, date
 All values are in ASCII.
 '''
-def readRanReportsFile():
+def readRanReportsFile(taskName):
     ranReports = {}
-    if os.path.isfile(config['DEFAULT']['reportfile']):
+    basepath = ''
+    if taskName:
+        basepath = "{0}-{1}". format(config['DEFAULT']['basepath'], taskName)
+    else:
+        basepath = config['DEFAULT']['basepath']
+
+    ranReportsPath = "{0}/{1}".format(basepath, config['DEFAULT']['reportfile'])
+        
+    if os.path.isfile(ranReportsPath):
         try: 
-            reportFile = open(config['DEFAULT']['reportfile'],'r')
+            reportFile = open(ranReportsPath,'r')
         except IOError:
-                print("Cannot open previously ran reports file. Please check file access or the config file")
+            print("Cannot open previously ran reports file. Please check file access or the config file")
     else:
         return ranReports
+    
     reportData = reportFile.readlines();
     reportFile.close();
     i = 0
@@ -62,15 +80,15 @@ we grab a list of all reportIDs on the server. We then check to see if the
 reportID is in the list of previous run reports for the chosen filter. If it is
 then skip it. If not then grab the full report using that filter
 '''
-def exportReports(filterID, filterString, optPagination, optDetails, optRewrite):
+def exportReports(filterID, filterString, optPagination, optDetails, optRewrite, taskName, genPDF):
     print('Loading previously completed reports data');
-    ranReports = readRanReportsFile();
+    ranReports = readRanReportsFile(taskName);
 
     #connect to our host as defined in the config file
     print ("Trying to connect to: '", config['DEFAULT']['host'], "' on port: '", config['DEFAULT']['port'],"'")
-    connection = TLSConnection(hostname=config['DEFAULT']['host'],timeout=3600)
+    connection = SSHConnection(hostname=config['DEFAULT']['host'],timeout=18000)
     if config['DEFAULT']['port']: 
-        connection = TLSConnection(hostname=config['DEFAULT']['host'],port=config['DEFAULT']['port'],timeout=3600)
+        connection = SSHConnection(hostname=config['DEFAULT']['host'],port=config['DEFAULT']['port'],timeout=18000)
     print('Starting report processing')
     
     with Gmp(connection) as gmp:
@@ -80,7 +98,7 @@ def exportReports(filterID, filterString, optPagination, optDetails, optRewrite)
         print('Connected to:', config['DEFAULT']['host'])
         
         #Get the CSV report format ID. We use CSV as the base format to transform into json
-        reportFormatID="" #holds the format id for CSV
+        reportFormatID="c1645568-627a-11e3-a660-406186ea4fc5" #holds the format id for CSV
         report_format = gmp.get_report_formats()
         report_root = ET.fromstring(report_format)
         for report in report_root:
@@ -91,7 +109,7 @@ def exportReports(filterID, filterString, optPagination, optDetails, optRewrite)
 
         getReports=[] #array of reportIDs
         print ('Getting reports')
-        allreports = gmp.get_reports(details=0) #we only need the reportID so minimize the data returned
+        allreports = gmp.get_reports(filter=taskName, details=0) #we only need the reportID so minimize the data returned
         print ('Retreived reports')
         allreports_root = ET.fromstring(allreports)
         print("Fetched the following scans from %s" %(config['DEFAULT']['host']))
@@ -124,7 +142,7 @@ def exportReports(filterID, filterString, optPagination, optDetails, optRewrite)
                 print("This report was processed on %s" %(ranReports[ranReportsKey]))
                 continue
                                             
-            if filterString: #if they are using a custojer filter string entered on the CLI
+            if filterString: #if they are using a custom filter string entered on the CLI
                 reportscv = gmp.get_report(reportID, filter=filterString, report_format_id=reportFormatID, ignore_pagination=optPagination, details=optDetails)
             else:
                 reportscv = gmp.get_report(reportID, filter_id=filterID, report_format_id=reportFormatID, ignore_pagination=optPagination, details=optDetails)
@@ -135,15 +153,19 @@ def exportReports(filterID, filterString, optPagination, optDetails, optRewrite)
             data = str(base64.b64decode(base64CVSData),"utf-8")
 
             #Write the result to file
-            writeResultToFile(resultID, data, filterID, filterString)
+            writeResultToFile(resultID, data, filterID, filterString, taskName, genPDF, gmp, optPagination, optDetails)
 #end exportReports            
 
 '''
 This will write the CSV data into a file
 '''    
-def writeResultToFile(name, data, fpsuffix, filterString):
+def writeResultToFile(name, data, fpsuffix, filterString, taskName, genPDF, gmp, optPagination, optDetails):
+    if taskName:
+        basepath = "{0}/data-{1}".format(config['DEFAULT']['basepath'], taskName)
+    else:
+        basepath = "{0}/data".format(config['DEFAULT']['basepath'])
     if fpsuffix:
-        reportPath = "{0}/{1}".format(config['DEFAULT']['datafolder'],fpsuffix)
+        reportPath = "{0}/{1}".format(basepath, fpsuffix)
         csvFilePath = "{0}/{1}.csv".format(reportPath, name)
         jsonFilePath = "{0}/{1}.json".format(reportPath,name)
         #create the directory if it doesn't exist
@@ -155,7 +177,7 @@ def writeResultToFile(name, data, fpsuffix, filterString):
                     return 
         print("Created directory for filter ", fpsuffix)
         if filterString: #we want to save the filterString entered on the CLI 
-            filterStringFile = "{0}/{1}/{2}".format(config['DEFAULT']['datafolder'],fpsuffix,'filter_string.txt')
+            filterStringFile = "{0}/{1}/{2}".format(basepath, fpsuffix, 'filter_string.txt')
             try: 
                 fs = open(filterStringFile, "w")
                 fs.write(filterString + '\n')
@@ -163,8 +185,8 @@ def writeResultToFile(name, data, fpsuffix, filterString):
             except IOError:
                     print("Non fatal error: Cannot write filter string to ", filterStringFile)
     else: 
-        csvFilePath = "{0}/{1}.csv".format(config['DEFAULT']['datafolder'],name)
-        jsonFilePath = "{0}/{1}.json".format(config['DEFAULT']['datafolder'],name)
+        csvFilePath = "{0}/{1}.csv".format(basepath, name)
+        jsonFilePath = "{0}/{1}.json".format(basepath, name)
     #end if fpsuffix
         
     print ('Writing CSV file: ', csvFilePath)
@@ -186,14 +208,57 @@ def writeResultToFile(name, data, fpsuffix, filterString):
     except IOError:
             print("Fatal error: Could not write JSON file to ", jsonFilePath)
 
+    if genPDF:
+        try:
+            if fpsuffix: 
+                pdfFilePath = "{0}/{1}.pdf".format(reportPath, name)
+            else:
+                pdfFilePath = "{0}/{1}.pdf".format(basepath, name)
+
+            print ('Writing PDF file: ', pdfFilePath)
+
+            pdf_report_format_id = "c402cc3e-b531-11e1-9163-406186ea4fc5"
+                
+            response = gmp.get_report(
+                report_id=name, filter_id=fpsuffix, report_format_id=pdf_report_format_id, ignore_pagination=optPagination, details=optDetails
+            )
+                
+            response_odict = xmltodict.parse(response)
+
+            content = response_odict['get_reports_response']['report']['#text']
+                
+            if not content:
+                print(
+                    'Requested report is empty. Either the report does not contain any '
+                    ' results or the necessary tools for creating the report are '
+                    'not installed.',
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+                    
+            # convert content to 8-bit ASCII bytes
+            binary_base64_encoded_pdf = content.encode('ascii')
+            
+            # decode base64
+            binary_pdf = base64.b64decode(binary_base64_encoded_pdf)
+            
+            # write to file and support ~ in filename path
+            pdf_path = Path(pdfFilePath).expanduser()
+                    
+            pdf_path.write_bytes(binary_pdf)
+
+        except IOError:
+            print("Non fatal error: Could not write PDF file to ", pdfFilePath)
+            
     #write the reportID, filterID, and current date time to ranreports file
     # in the case of the overwrite optiosn being used we *do not* remove the
     # old entires from prior runs. We should but we don't. 
     try: 
-        ranReportsFile = open(config['DEFAULT']['reportfile'],'a')
+        ranReportsPath = "{0}/{1}".format(basepath, config['DEFAULT']['reportfile'])
+        ranReportsFile = open(ranReportsPath, 'a')
         ranReportsFile.write('%s, %s, %s\n' % (fpsuffix, name, current_datetime))
     except IOError:
-            print("Non fatal error: Could not write previously raw reports data to ", config['DEFAULT']['reportfile'])
+            print("Non fatal error: Could not write previously ran reports data to ", config['DEFAULT']['reportfile'])
 
     ranReportsFile.close()
     jsonFile.close()
@@ -203,33 +268,41 @@ def writeResultToFile(name, data, fpsuffix, filterString):
 def main(argv):
     filterID = ''
     filterString = ''
+    taskName = ''
     pagination = True
     details = True
     rewriteReports = False
     configSuffix = 'ini'
+    genPDF = False
     
     try:
-        opts, args = getopt.getopt(argv, "hpdf:s:oi:")
+        opts, args = getopt.getopt(argv, "hpdf:s:oi:t:P")
     except getopt.GetoptError:
-        print('getReport.py -f <filter id> [string]')
+        print('getReport.py -t taskname [string]')
+        print ('            -f <filter id> [string]')
         print('             -i config file sufix [string]')
         print('             -d disable details')
         print('             -p enable pagination')
         print('             -s custom filter string [string]')
-        print('             -o over write previously processed reports')
+        print('             -o overwrite previously processed reports')
+        print('             -P generate PDF file of results')
         pretty_print(getopt.GetoptError)
         sys.exit(2)
     #end except
 
     for opt, arg in opts:
         if opt == '-h':
-            print('getReport.py -f <filter id>')
+            print('getReport.py -t taskname')
+            print('             -f <filter id>')
             print('             -i config file sufix [string]')            
             print('             -d disable details')
             print('             -p enable pagination')
             print('             -s custom filter string')
             print('             -o over write previously processed reports')
+            print('             -P generate PDF file of results')
             sys.exit()
+        elif opt == '-t':
+            taskName = arg.strip()
         elif opt == '-f':
             filterID = arg
         elif opt == '-p':
@@ -242,6 +315,8 @@ def main(argv):
             rewriteReports = True
         elif opt == '-i':
             configSuffix = arg
+        elif opt == '-P':
+            genPDF = True
         #end for
 
     configFile = './config/config.' + configSuffix
@@ -281,7 +356,7 @@ def main(argv):
     if filterString:
         print('Running custom report with filter: ', filterString)
 
-    exportReports(filterID, filterString, pagination, details, rewriteReports)
+    exportReports(filterID, filterString, pagination, details, rewriteReports, taskName, genPDF)
 #end main
     
 if __name__ == "__main__":
