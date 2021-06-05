@@ -29,6 +29,8 @@ using 'touch' or it's equivalent.
 
 Usage:
 python3 getReport.py -f <filter id>
+		     -t Task name
+		     -P produce PDF of report
                      -d disable details
 	             -p enable pagination
 	             -s custom filter string
@@ -38,10 +40,16 @@ python3 getReport.py -f <filter id>
         in GVM. If this filter id doesn't exist the no results will be returned and
 	the getReport process will die
 
+    -t: this is the task name associated with the scans. Not entering the task name
+    	will process all reports matching the filter id. This is useful if you have
+	one scanner for several networks or network segments
+
+    -P: create a PDF (generic version) of the report using the requested filter id. 
+
     -d: disable details in the report. Off by default
 
     -p: enable pagination. Return the results as pages. This is of limited value
-        and will return truncate results.
+        and will return truncated results.
 
     -s: pass a custom filter string to GVM. Invalid filter strings may produce results
         but the value of those results may be limited. When using a custom filter string
