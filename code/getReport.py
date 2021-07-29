@@ -44,8 +44,9 @@ All values are in ASCII.
 def readRanReportsFile(taskName):
     ranReports = {}
     basepath = ''
+
     if taskName:
-        basepath = "{0}-{1}". format(config['DEFAULT']['basepath'], taskName)
+        basepath = "{0}/{1}-{2}". format(config['DEFAULT']['basepath'], "data", taskName)
     else:
         basepath = config['DEFAULT']['basepath']
 
