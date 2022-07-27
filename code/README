@@ -1,0 +1,98 @@
+Introduction: 
+Ibex is a utility to export reports from a Greenbone server and export them into both
+CSV and JSON format. The JSON format is appropriate for input in to LogStash,
+ElasticSearch, and the like.
+
+Ibex is based on Openvas-Exporter written by Mattias Hemmingsson
+(https://github.com/mattiashem/openvas-exporter/)
+
+Why Ibex? I was typing 'ovex' as shorthand for openvas-exporter and typoed it as
+ibex. Seemed like a good name to use and ibexes are pretty darn cool.
+
+Dependencies:
+Ibex depends on the following python3 modules
+gvm-tools, untangle, and python-gvm
+
+Configuration:
+Ibex is configured via the config.ini file found in the config directory. This
+file must exist for getReport to run. The contents of the config.ini file are:
+
+[DEFAULT]
+username=[username for GVM]
+password=[user password for GVM]
+host=[GVM host]
+datafolder=[root diretcory to store results]
+reportfile=[path to file for previousy generate results]
+
+NOTE: the reportfile *must* exist. So before your first run create the file
+using 'touch' or it's equivalent. 
+
+Usage:
+python3 getReport.py -f <filter id>
+		     -t Task name
+		     -P produce PDF of report
+                     -d disable details
+	             -p enable pagination
+	             -s custom filter string
+	             -o overwrite previously processed reports
+
+    -f: the filter id is the UUID string that correspond to a pre-existing filter
+        in GVM. If this filter id doesn't exist the no results will be returned and
+	the getReport process will die
+
+    -t: this is the task name associated with the scans. Not entering the task name
+    	will process all reports matching the filter id. This is useful if you have
+	one scanner for several networks or network segments
+
+    -P: create a PDF (generic version) of the report using the requested filter id. 
+
+    -d: disable details in the report. Off by default
+
+    -p: enable pagination. Return the results as pages. This is of limited value
+        and will return truncated results.
+
+    -s: pass a custom filter string to GVM. Invalid filter strings may produce results
+        but the value of those results may be limited. When using a custom filter string
+	the text of the string is hashed and used to create a diretcory in the data directory.
+	Results will be stored here along with a file containing the filter string called
+	'filter_string.txt'
+
+    -o: Overwrite previous generated results. Ibex stores the report ID and filter ID
+        to create a unique key. This key is used to skip over results that have already
+	been generated. Using this option will regenerate those results.
+
+Example run:
+python3 newReport.py -s "min_qod=70 autofp=0 apply_overrides=1 notes=1 overrides=1 result_hosts_only=1 first=1 rows=100 sort-reverse=severity levels=hml"
+Details enabled
+Ignore pagination enabled
+Running reports with no filter id
+Running custom report with filter:  min_qod=70 autofp=0 apply_overrides=1 notes=1 overrides=1 result_hosts_only=1 first=1 rows=100 sort-reverse=severity levels=hml
+Loading previously completed reports data
+Starting report processing
+Connected to: gvm.example.com
+Getting reports
+Retreived reports
+Fetched the following scans from gvm.example.com
+{'content_type': 'text/xml', 'id': '32b3c666-24aa-4927-a2dc-bd40c5319a6d', 'format_id': 'a994b278-1f62-11e1-96ac-406186ea4fc5', 'type': 'scan', 'extension': 'xml'}
+{'content_type': 'text/xml', 'id': '87e99618-2ca6-41fa-bb9d-5121f0fc8c9d', 'format_id': 'a994b278-1f62-11e1-96ac-406186ea4fc5', 'type': 'scan', 'extension': 'xml'}
+{'content_type': 'text/xml', 'id': 'db9a7c67-7499-4e13-8c80-628cf84e91f6', 'format_id': 'a994b278-1f62-11e1-96ac-406186ea4fc5', 'type': 'scan', 'extension': 'xml'}
+{'content_type': 'text/xml', 'id': 'ae075408-c4fc-4aba-b65e-41ced302fde1', 'format_id': 'a994b278-1f62-11e1-96ac-406186ea4fc5', 'type': 'scan', 'extension': 'xml'}
+{'content_type': 'text/xml', 'id': '9673ef0a-b0df-4cd0-b090-5dc6b9baaff3', 'format_id': 'a994b278-1f62-11e1-96ac-406186ea4fc5', 'type': 'scan', 'extension': 'xml'}
+{'content_type': 'text/xml', 'id': '1d832542-c4c8-492e-8f93-990f28441485', 'format_id': 'a994b278-1f62-11e1-96ac-406186ea4fc5', 'type': 'scan', 'extension': 'xml'}
+{'content_type': 'text/xml', 'id': '8e67eb42-a2c6-942a-23af-102bc45a7832', 'format_id': 'a994b278-1f62-11e1-96ac-406186ea4fc5', 'type': 'scan', 'extension': 'xml'}
+Processing Report ID: 32b3c666-24aa-4927-a2dc-bd40c5319a6d
+This report was processed on 2020-07-23 14:02:38.905777
+Processing Report ID: 87e99618-2ca6-41fa-bb9d-5121f0fc8c9d
+This report was processed on 2020-07-23 14:02:38.905777
+Processing Report ID: db9a7c67-7499-4e13-8c80-628cf84e91f6
+This report was processed on 2020-07-23 14:02:38.905777
+Processing Report ID: ae075408-c4fc-4aba-b65e-41ced302fde1
+This report was processed on 2020-07-23 14:02:38.905777
+Processing Report ID: 9673ef0a-b0df-4cd0-b090-5dc6b9baaff3
+This report was processed on 2020-07-23 14:02:38.905777
+Processing Report ID: 1d832542-c4c8-492e-8f93-990f28441485
+This report was processed on 2020-07-23 14:02:38.905777
+Processing Report ID: 8e67eb42-a2c6-942a-23af-102bc45a7832
+Writing CSV file:  data/369fd4828387ae3438b29bd6afc498e1f028f760/8e67eb42-a2c6-942a-23af-102bc45a7832.csv
+Writing JSON file:  data/369fd4828387ae3438b29bd6afc498e1f028f760/8e67eb42-a2c6-942a-23af-102bc45a7832.json
+
